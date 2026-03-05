@@ -1,9 +1,22 @@
 package com.ia.project.service;
 
 
+
 import org.springframework.stereotype.Service;
+
+import java.io.IOException;
+
+import org.springframework.core.io.ByteArrayResource;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
+import org.springframework.util.LinkedMultiValueMap;
+import org.springframework.util.MultiValueMap;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.multipart.MultipartFile;
+
+import com.ia.project.model.response.PredictResponseModel;
 
 import lombok.RequiredArgsConstructor;
 
@@ -13,15 +26,62 @@ public class NeuralModelService {
     
     private final RestTemplate restTemplate;
 
-    public String predictImageClass(MultipartFile image) {
-        try {
-            String url = "http://localhost:5000/predict";
-            return restTemplate.postForObject(url, image, String.class);
-        } catch (Exception e) {
-            e.printStackTrace();
-            return "Error during prediction: " + e.getMessage();
+    public String predictImageClass(MultipartFile image) throws IOException {
+
+        String flaskUrl = "http://localhost:5000/predict";
+
+        RestTemplate restTemplate = new RestTemplate();
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.MULTIPART_FORM_DATA);
+
+        MultiValueMap<String, Object> body = new LinkedMultiValueMap<>();
+
+        body.add("image", new ByteArrayResource(image.getBytes()) {
+            @Override
+            public String getFilename() {
+                return image.getOriginalFilename();
+            }
+        });
+
+        HttpEntity<MultiValueMap<String, Object>> requestEntity =
+                new HttpEntity<>(body, headers);
+
+        ResponseEntity<PredictResponseModel> response = restTemplate.postForEntity(
+                flaskUrl,
+                requestEntity,
+                PredictResponseModel.class
+        );
+
+        String prediction = response.getBody().getPredicted_class();
+
+        switch (prediction){
+            case "0":
+                return "Avião";
+            case "1":
+                return "Automóvel";
+            case "2":
+                return "Pássaro";
+            case "3":
+                return "Gato";
+            case "4":
+                return "Cervo";
+            case "5":
+                return "Cachorro";
+            case "6":
+                return "Sapo";
+            case "7":
+                return "Cavalo";
+            case "8":
+                return "Navio";
+            case "9":
+                return "Caminhão";
+            default:
+                return "Previsão desconhecida: " + prediction;
         }
     }
+
+
 
     public String getModelLossFunction() {
         try {

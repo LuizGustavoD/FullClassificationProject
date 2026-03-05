@@ -1,7 +1,9 @@
-from flask import Blueprint, request, jsonify
+from flask import request, jsonify, Blueprint
 import tensorflow as tf
-import numpy as np
 from werkzeug.utils import secure_filename
+from PIL import Image
+import numpy as np
+
 import os 
 
 MODEL_PATH = 'D:\\luizd\\Projects\\ProjetoIABackFront\\neuralNetwork\\img_class (1).h5'
@@ -21,12 +23,7 @@ def predict():
         if file.filename == '':
             return jsonify({'error': 'Empty filename'}), 400
 
-        filename = secure_filename(file.filename)
-        path = os.path.join('uploads', filename)
-
-        file.save(path)
-
-        predicted_class = predict_image(path)
+        predicted_class = predict_image(file)
 
         return jsonify({'predicted_class': int(predicted_class)})
 
@@ -34,12 +31,18 @@ def predict():
         return jsonify({'error': str(e)}), 500
 
 
-def predict_image(image_path):
-    img = tf.keras.preprocessing.image.load_img(image_path, target_size=(32, 32))
-    img_array = tf.keras.preprocessing.image.img_to_array(img)
-    img_array = tf.expand_dims(img_array, 0)  
+def predict_image(file):
+
+    img = Image.open(file.stream)
+
+    img = img.resize((32, 32))
+    img_array = np.array(img)
+
+    img_array = np.expand_dims(img_array, axis=0)
     img_array = img_array / 255.0
 
     predictions = model.predict(img_array)
+
     predicted_class = np.argmax(predictions[0])
+
     return predicted_class
