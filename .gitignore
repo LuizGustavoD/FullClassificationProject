@@ -8,3 +8,6 @@ build/
 *.log
 *.h5
 .env
+features.txt
+secrets/
+*.pem

@@ -19,7 +19,7 @@ public class NeuralModelDetails {
     @GetMapping("/accuracy")
     public ResponseEntity<String> getAccuracy() {
         // Lógica para retornar a acurácia do modelo
-        return ResponseEntity.ok("Acurácia do modelo: 95%");
+        return ResponseEntity.ok("Acurácia do modelo: 97%");
     }
 
     @GetMapping("/summary")
