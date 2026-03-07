@@ -1,102 +1,179 @@
 # Projeto IA Back + Front
 
-Plataforma de classificação de imagens com arquitetura distribuída em três partes principais:
+Plataforma de IA com arquitetura distribuida e foco em classificacao de imagens, autenticacao de usuarios com confirmacao por e-mail e servicos auxiliares para evolucao futura.
 
-- **Frontend** em React + Vite (interface para upload de imagem e visualização de métricas do modelo).
-- **Backend** em Spring Boot (orquestra chamadas entre frontend e serviço de inferência).
-- **Serviço de inferência** em Flask + TensorFlow (carrega o modelo `.h5` e executa predição).
+## Sumario
 
-## Sumário
-
-- [Visão geral da arquitetura](#visão-geral-da-arquitetura)
-- [Estrutura do repositório](#estrutura-do-repositório)
-- [Tecnologias](#tecnologias)
-- [Pré-requisitos](#pré-requisitos)
-- [Configuração e execução local](#configuração-e-execução-local)
-- [Fluxo da aplicação](#fluxo-da-aplicação)
-- [Endpoints](#endpoints)
+- [Arquitetura Geral](#arquitetura-geral)
+- [Mapa do Repositorio](#mapa-do-repositorio)
+- [Tecnologias Utilizadas](#tecnologias-utilizadas)
+- [Funcionalidades Implementadas](#funcionalidades-implementadas)
+- [Endpoints Disponiveis](#endpoints-disponiveis)
+- [Como Executar](#como-executar)
 - [Testes](#testes)
-- [Pontos de atenção atuais](#pontos-de-atenção-atuais)
-- [Melhorias recomendadas](#melhorias-recomendadas)
+- [Estado Atual e Placeholders](#estado-atual-e-placeholders)
+- [Roadmap Futuro](#roadmap-futuro)
 
-## Visão geral da arquitetura
+## Arquitetura Geral
+
+### Visao macro
 
 ```text
-Frontend (React/Vite)
-	└─ HTTP -> http://localhost:8080
-				 Spring Boot (project)
-					 └─ HTTP -> http://localhost:5000
-									Flask + TensorFlow (predictConnection)
+Frontend (React + Vite)
+  -> HTTP :8080 (Spring Boot API)
+      -> HTTP :5000 (Flask Inferencia)
+      -> HTTP :5001 (Flask Mail Service)
+
+Opcional/infra:
+- Nginx como reverse proxy HTTPS local
+- Script PowerShell para subir servicos
+- Modulos experimentais de traducao e street preview (scaffold)
 ```
 
-### Responsabilidades por serviço
+### Fluxo principal de classificacao
 
-- **Frontend (`frontend/img-vision-hub`)**
-	- Upload da imagem.
-	- Exibe classe prevista.
-	- Exibe dados do modelo sob demanda (summary, optimizer, metrics etc).
+1. Usuario envia imagem no frontend.
+2. Frontend chama `POST /send` no backend Java.
+3. Backend envia multipart para `predictConnection` (`POST /predict`).
+4. Flask/TensorFlow devolve `predicted_class` numerico.
+5. Spring converte o indice para classe em portugues (`Avião`, `Gato`, etc.).
+6. Frontend exibe resultado e feedback visual.
 
-- **Backend Java (`project`)**
-	- Endpoint `POST /send` recebe a imagem do frontend.
-	- Encaminha a imagem para Flask (`/predict`).
-	- Converte índice predito (`0-9`) para rótulo em português (ex.: `0 -> Avião`).
-	- Disponibiliza endpoints de metadados em `/model/*`.
+### Fluxo de autenticacao e confirmacao
 
-- **Inferência Python (`predictConnection`)**
-	- Carrega o modelo `neuralNetwork/img_class (1).h5`.
-	- Pré-processa imagem para `32x32`, normaliza e executa `model.predict`.
-	- Retorna `predicted_class`.
+1. Usuario registra em `POST /auth/register`.
+2. Backend salva usuario no MySQL (senha com BCrypt).
+3. Backend gera token de validacao JWT e monta link de confirmacao.
+4. Backend aciona `mailService` em `POST /send_mail`.
+5. Usuario confirma conta em `GET /auth/register/confirm/{uuid}?token=...`.
+6. Login retorna JWT de acesso.
 
-## Estrutura do repositório
+## Mapa do Repositorio
 
 ```text
 ProjetoIABackFront/
-├─ frontend/img-vision-hub/      # App React + Vite
-├─ project/                      # API Spring Boot
-├─ predictConnection/            # API Flask de inferência
-├─ neuralNetwork/                # Modelo treinado e notebooks
-├─ nginx/                        # Configuração Nginx (proxy/SSL local)
-├─ docker/                       # Placeholder (dockerfile vazio)
-├─ scripts/                      # Placeholder (startServices.ps1 vazio)
-└─ translateConnection/          # Estrutura inicial (ainda sem implementação efetiva)
+|- frontend/img-vision-hub/   # SPA React (upload, classificacao, dados do modelo)
+|- project/                   # API principal Spring Boot (auth + orquestracao IA)
+|- predictConnection/         # API Flask de inferencia TensorFlow
+|- mailService/               # API Flask para envio de e-mail SMTP
+|- neuralNetwork/             # Modelo .h5 e notebooks de treinamento
+|- nginx/                     # Reverse proxy HTTPS local
+|- scripts/                   # Automacao de subida dos servicos
+|- translateConnection/       # Scaffold para traducao (incompleto)
+|- streetPreviewConnection/   # Scaffold para street preview (incompleto)
+|- docker/                    # Dockerfile ainda vazio
+`- features.txt               # Backlog curto do projeto
 ```
 
-## Tecnologias
+## Tecnologias Utilizadas
+
+### Frontend (`frontend/img-vision-hub`)
+
+- Runtime e base: `React 18`, `TypeScript 5`, `Vite 5`, `React Router DOM`.
+- UI e design system: `Tailwind CSS`, `tailwindcss-animate`, `shadcn/ui`, `Radix UI` (accordion, dialog, dropdown, popover, toast, tooltip e outros componentes).
+- Estado e formularios: `@tanstack/react-query`, `react-hook-form`, `@hookform/resolvers`, `zod`.
+- Visualizacao e utilitarios: `lucide-react`, `recharts`, `sonner`, `clsx`, `class-variance-authority`, `tailwind-merge`, `date-fns`, `embla-carousel-react`, `react-day-picker`, `react-resizable-panels`, `vaul`, `cmdk`, `input-otp`, `next-themes`.
+- Qualidade e build tooling: `ESLint 9`, `typescript-eslint`, `@vitejs/plugin-react-swc`, `PostCSS`, `Autoprefixer`.
+- Testes frontend: `Vitest`, `@testing-library/react`, `@testing-library/jest-dom`, `jsdom`.
+
+### Backend Java (`project`)
+
+- Plataforma: `Java 21`, `Spring Boot 4.0.3`, `Maven`.
+- APIs e web: `spring-boot-starter-webmvc`.
+- Dados e persistencia: `spring-boot-starter-data-jpa`, `MySQL Connector/J`, `Flyway`.
+- Seguranca: `spring-boot-starter-security`, `spring-boot-starter-security-oauth2-resource-server`, `spring-boot-starter-security-oauth2-client`.
+- JWT: `JwtEncoder/JwtDecoder` com chave HMAC (`security.jwt.secret`).
+- Produtividade: `Lombok`.
+- Testes backend: `spring-boot-starter-data-jpa-test`, `spring-boot-starter-security-test`, `spring-boot-starter-webmvc-test`.
+
+### IA e inferencia (`predictConnection`)
+
+- Linguagem e API: `Python`, `Flask 3.1.3`.
+- Machine Learning: `TensorFlow 2.20.0`, `Keras 3.12.1`, `tensorboard`.
+- Processamento: `NumPy`, `Pillow`, `h5py`.
+- Ecossistema cientifico e suporte do stack TensorFlow: `absl-py`, `protobuf`, `grpcio`, `libclang`, `opt_einsum`, `ml_dtypes`, `wrapt` e demais bibliotecas do `requirements.txt`.
+
+### Servico de e-mail (`mailService`)
+
+- `Python`, `Flask`, `smtplib` (stdlib), `email.mime` (stdlib).
+- Configuracao SMTP via variaveis de ambiente (`SMTP_SERVER`, `SMTP_PORT`, `SMTP_USERNAME`, `SMTP_PASSWORD`).
+
+### Infraestrutura e operacao
+
+- `Nginx` com proxy HTTPS local (certificados comentados no estado atual).
+- `PowerShell` (`scripts/startServices.ps1`) para subir `predictConnection`, `mailService`, `project` e `frontend` em janelas separadas.
+- Preparacao para containerizacao em `docker/` (ainda incompleta).
+
+## Funcionalidades Implementadas
 
 ### Frontend
 
-- React 18
-- TypeScript
-- Vite
-- Tailwind CSS + shadcn/ui
-- Vitest
+- Tela de classificacao com upload por clique e drag-and-drop.
+- Preview da imagem antes da inferencia.
+- Acao de classificar com estado de loading e mensagens de erro.
+- Exibicao de resultado com icone contextual por classe prevista.
+- Tela de informacoes do modelo com cards acionando endpoints de metadados.
+- Roteamento entre paginas `Classificacao` e `Modelo`.
 
-### Backend Java
+### Backend Spring Boot
 
-- Java 21
-- Spring Boot (Web MVC)
-- Maven
-- Lombok
+- Orquestracao de inferencia: recebe imagem, envia para Flask e traduz classe numerica para nome em portugues.
+- Exposicao de endpoints de detalhes de modelo (`summary`, `loss`, `metrics`, `optimizer`, `layers`).
+- Cadastro de usuario com validacao de username unico.
+- Criptografia de senha com `BCryptPasswordEncoder`.
+- Login com autenticacao via `AuthenticationManager` e retorno de JWT.
+- Confirmacao de conta por link com token de validacao.
+- Persistencia de usuarios em MySQL (`JPA`).
 
-### Inferência
+### Servicos Python
 
-- Python
-- Flask
-- TensorFlow / Keras
-- Pillow / NumPy
+- `predictConnection`: carregamento de modelo `.h5`, preprocessamento (`32x32`, normalizacao) e predicao.
+- `mailService`: envio de e-mail HTML de confirmacao de cadastro.
 
-## Pré-requisitos
+### Automacao operacional
 
-- **Node.js** 18+ e `npm` (ou Bun, caso prefira)
-- **Java** 21
-- **Python** 3.10+ (recomendado 3.11)
-- **Maven Wrapper** (já incluído em `project/mvnw` e `project/mvnw.cmd`)
+- Script `startServices.ps1` com opcoes `-SkipPredict`, `-SkipMail`, `-SkipJava`, `-SkipFrontend`.
 
-## Configuração e execução local
+## Endpoints Disponiveis
 
-> Ordem recomendada: 1) Flask (`predictConnection`), 2) Spring Boot (`project`), 3) Frontend (`frontend/img-vision-hub`).
+### API Java (`http://localhost:8080`)
 
-### 1) Serviço de inferência (Flask)
+- `POST /send`: multipart com `image`, retorna classe prevista em texto.
+- `GET /model/accuracy`: retorna acuracia textual.
+- `GET /model/summary`: retorna resumo do modelo.
+- `GET /model/lossFunc`: retorna funcao de perda.
+- `GET /model/metrics`: retorna metricas.
+- `GET /model/optimizer`: retorna otimizador.
+- `GET /model/layers`: retorna camadas do modelo.
+- `POST /auth/register`: registra usuario (`username`, `password`, `email`).
+- `GET /auth/register/confirm/{uuid}?token=...`: confirma conta.
+- `POST /auth/login/login`: autentica usuario e retorna JWT.
+
+### API de inferencia (`http://localhost:5000`)
+
+- `POST /predict`: recebe imagem e retorna `predicted_class`.
+- `GET /summary`: resumo do modelo TensorFlow.
+- `GET /lossFunc`: funcao de perda.
+- `GET /metrics`: metricas.
+- `GET /optimizer`: otimizador.
+- `GET /layers`: camadas.
+
+### API de e-mail (`http://localhost:5001`)
+
+- `POST /send_mail`: recebe `recipient` e `confirmation_link`, envia e-mail HTML.
+
+## Como Executar
+
+### Pre-requisitos
+
+- `Node.js` 18+ e `npm`.
+- `Java` 21.
+- `Python` 3.10+.
+- MySQL disponivel com schema `ia_project`.
+
+### Opcao 1: subida manual
+
+1. `predictConnection`
 
 ```powershell
 cd predictConnection
@@ -106,18 +183,21 @@ pip install -r requirements.txt
 python app.py
 ```
 
-Serviço sobe em: `http://localhost:5000`
+2. `mailService`
 
-### 2) Backend Spring Boot
+```powershell
+cd mailService
+python app.py
+```
+
+3. `project`
 
 ```powershell
 cd project
 .\mvnw.cmd spring-boot:run
 ```
 
-Serviço sobe em: `http://localhost:8080`
-
-### 3) Frontend React
+4. `frontend/img-vision-hub`
 
 ```powershell
 cd frontend\img-vision-hub
@@ -125,97 +205,60 @@ npm install
 npm run dev -- --port 5173
 ```
 
-Frontend em: `http://localhost:5173`
+### Opcao 2: script unico
 
-> O projeto está configurado em `src/services/api.ts` para consumir o backend em `http://localhost:8080`.
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\startServices.ps1
+```
 
-## Fluxo da aplicação
+Exemplo sem frontend:
 
-1. Usuário envia imagem pelo frontend.
-2. Frontend faz `POST /send` no Spring Boot.
-3. Spring Boot repassa a imagem para Flask `POST /predict`.
-4. Flask retorna `predicted_class` (índice numérico).
-5. Spring Boot traduz índice para rótulo legível em português.
-6. Frontend exibe o resultado ao usuário.
-
-## Endpoints
-
-### Spring Boot (`http://localhost:8080`)
-
-- `POST /send`
-	- Form-data: `image`
-	- Retorno: texto com classe prevista em português
-
-- `GET /model/accuracy`
-	- Retorno: texto fixo (`Acurácia do modelo: 95%`)
-
-- `GET /model/summary`
-- `GET /model/lossFunc`
-- `GET /model/metrics`
-- `GET /model/optimizer`
-- `GET /model/layers`
-	- Retorno: string com payload retornado pelo Flask
-
-### Flask (`http://localhost:5000`)
-
-- `POST /predict`
-	- Form-data: `image`
-	- Retorno: JSON com `predicted_class`
-
-- `GET /summary`
-- `GET /lossFunc`
-- `GET /metrics`
-- `GET /optimizer`
-- `GET /layers`
-	- Retornos JSON com dados do modelo carregado
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\startServices.ps1 -SkipFrontend
+```
 
 ## Testes
 
-### Frontend
+- Frontend: `cd frontend\img-vision-hub && npm run test`
+- Backend: `cd project && .\mvnw.cmd test`
+- Estado atual: existem testes basicos de exemplo/contexto. Cobertura funcional ainda inicial.
 
-```powershell
-cd frontend\img-vision-hub
-npm run test
-```
+## Estado Atual e Placeholders
 
-Atualmente há teste de exemplo básico em `src/test/example.test.ts`.
+- `translateConnection` esta em scaffold inicial.
+- `translateConnection/app.py` possui apenas import de `Flask`, sem bootstrap da aplicacao.
+- `translateConnection/routes/translateController.py` so declara imports/base de blueprint.
+- `streetPreviewConnection/app.py` esta vazio.
+- Pastas `streetPreviewConnection/config`, `streetPreviewConnection/model` e `streetPreviewConnection/routes` estao vazias ou quase vazias.
+- `docker/dockerfile` esta vazio.
+- `nginx/nginx.conf` possui configuracao de SSL comentada.
+- Frontend e backend conflitam na porta `8080` por padrao (`vite.config.ts` x Spring Boot), exigindo override no frontend.
+- `predictConnection` usa caminho absoluto local para o arquivo do modelo, reduzindo portabilidade.
 
-### Backend Java
+## Roadmap Futuro
 
-```powershell
-cd project
-.\mvnw.cmd test
-```
+### Curto prazo
 
-Existe teste de contexto Spring (`ProjectApplicationTests`).
+- Finalizar os modulos placeholders (`translateConnection`, `streetPreviewConnection`) com rotas, servicos e testes.
+- Tornar caminhos/portas configuraveis por `.env` em todos os servicos.
+- Ajustar porta padrao do frontend para evitar conflito com Spring Boot.
+- Concluir containerizacao (preencher `docker/dockerfile` e adicionar `docker-compose.yml`).
+- Ativar SSL local no Nginx com certificados validos.
 
-## Pontos de atenção atuais
+### Medio prazo
 
-1. **Conflito de porta**
-	 - Vite está configurado para `8080` (`vite.config.ts`), mesma porta do Spring Boot.
-	 - Solução prática: iniciar frontend em outra porta (`5173`) via CLI.
+- Consolidar fluxo de autenticacao JWT ponta a ponta no frontend (interceptor, armazenamento seguro, renovacao e expiracao).
+- Evoluir modelo de autorizacao por papeis (`ROLE_USER`, `ROLE_ADMIN`) em endpoints protegidos.
+- Expandir cobertura de testes (integracao backend, API contract, E2E frontend).
+- Endurecer seguranca operacional (segredos em vault, politicas CORS e rate limit).
 
-2. **Caminho absoluto do modelo no Python**
-	 - `predictConnection/routes/predictController.py` e `predictConnection/routes/modelDetails.py` usam caminho absoluto local do Windows.
-	 - Isso dificulta execução em outras máquinas.
+### Longo prazo
 
-3. **Arquivos de infraestrutura ainda vazios**
-	 - `docker/dockerfile` vazio.
-	 - `scripts/startServices.ps1` vazio.
+- Concluir ciclo de treinamento e versionamento da rede neural (`features.txt`: terminar treinamento).
+- Adicionar observabilidade completa (logs estruturados, traces e metricas por servico).
+- Preparar deploy cloud com pipeline CI/CD e ambientes isolados.
 
-4. **Módulo `translateConnection` incompleto**
-	 - Estrutura existe, mas sem rotas/serviço implementados de fato.
+## Backlog imediato (`features.txt`)
 
-5. **Nginx com SSL comentado**
-	 - Configuração em `nginx/nginx.conf` contém trechos de certificado comentados.
-
-## Melhorias recomendadas
-
-- Externalizar URLs/portas para variáveis de ambiente.
-- Remover caminho absoluto do modelo e usar caminho relativo/configurável.
-- Implementar CORS explicitamente no backend Java e Flask.
-- Criar `docker-compose.yml` para orquestrar frontend + backend + inferência.
-- Preencher `scripts/startServices.ps1` para startup automatizado.
-- Evoluir cobertura de testes (integração e e2e).
-
----
+- Implementacao de login com banco MySQL (status: base implementada no backend, falta consolidacao end-to-end no produto).
+- Finalizar treinamento da rede neural.
