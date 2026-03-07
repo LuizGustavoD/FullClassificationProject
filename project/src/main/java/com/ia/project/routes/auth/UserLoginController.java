@@ -18,10 +18,12 @@ public class UserLoginController {
 
     private final UserService userService;
 
-    @PostMapping
-    public ResponseEntity<String> login (@RequestBody LoginRequestDTO request) {
-        String response = userService.loginUser(request);
+    @PostMapping("/login")
+    public ResponseEntity<String> login(@RequestBody LoginRequestDTO request) {
+
+        String response = userService.loginUser(new LoginRequestDTO(request.username(), request.password()));
         return ResponseEntity.ok(response);
+
     }
 
 }

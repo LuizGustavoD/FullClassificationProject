@@ -1,4 +1,13 @@
 spring:
-    application:
-        name: project
+  application:
+    name: project
 
+  datasource:
+    url: jdbc:mysql://192.168.0.108:3306/ia_project
+    username: admin
+    password: admin123
+    driver-class-name: com.mysql.cj.jdbc.Driver
+
+security:
+  jwt:
+    secret: "-ac94-bcca231dd59fXs6bI9+9FRR6d3ZfT+lTyzvyeoBdthRZY5II5P2uWpQ="
